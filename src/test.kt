@@ -1,0 +1,9 @@
+val x: Int = 10
+val cadena: String = "Hola mundo"
+var contador: Int? = null
+var area: Float = 10.0f
+var volumen: Float? = null
+val cadena2: String = "Para el proyecto"
+val arrConst: IntArray = IntArray(3)
+var floatArr: FloatArray = FloatArray(10) {1.1f}
+var sArr = arrayOf<String>("Hola", "es", "arreglo")
