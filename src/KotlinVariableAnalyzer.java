@@ -2,6 +2,7 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 import java.util.regex.*;
+import javax.swing.*;
 
 public class KotlinVariableAnalyzer {
     private static final String VAR_PATTERN = """
@@ -15,14 +16,23 @@ public class KotlinVariableAnalyzer {
 
     public static void main(String[] args) throws IOException {
         String filePath = args.length > 0 ? args[0] : openFileDialog();
-        if (filePath == null) return;
+        if (filePath == null){
+            System.out.println("No se ha encontrado el archivo");
+            return;
+        }
 
         List<String> lines = Files.readAllLines(Paths.get(filePath));
         analyzeVariables(lines);
     }
 
     private static String openFileDialog() {
-        System.out.println("Debe proporcionar un archivo como argumento.");
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Selecciona un archivo de código Kotlin");
+
+        int userSelection = fileChooser.showOpenDialog(null);
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            return fileChooser.getSelectedFile().getAbsolutePath();
+        }
         return null;
     }
 
