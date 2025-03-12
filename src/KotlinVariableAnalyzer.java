@@ -9,7 +9,7 @@ public class KotlinVariableAnalyzer {
         (?<const>val|var)\\s+  # Tipo de declaración (val o var)
         (?<name>\\w+)\\s*       # Nombre de la variable
         (?::\\s*(?<type>[\\w<>]+))?  # Tipo opcional (ej. Int, Float, String, etc.)
-        \\s*(?:=\\s*(?<value>.+))?  # Valor opcional después del =
+        \\s*(?:=\\s*(?<value>.*))?  # Valor opcional después del =
     """.stripIndent();
 
     private static final Pattern pattern = Pattern.compile(VAR_PATTERN, Pattern.COMMENTS);
@@ -50,7 +50,14 @@ public class KotlinVariableAnalyzer {
                 String varName = matcher.group("name");
                 boolean isConst = matcher.group("const").equals("val");
                 boolean isInitialized = matcher.group("value") != null;
-                boolean isArray = varType.matches(".*Array.*|arrayOf<.*>");
+
+                if (varType.equals("Unknown") && matcher.group("value") != null){
+                    Matcher arrayMatcher = Pattern.compile("arrayOf<([^>]+)>").matcher(matcher.group("value"));
+                    if(arrayMatcher.find()){
+                        varType = "Arreglo " + arrayMatcher.group(1);
+                    }
+                }
+                boolean isArray = varType.contains("Array") || varType.startsWith("Arreglo ");
 
                 typeCount.put(varType, typeCount.getOrDefault(varType, 0) + 1);
                 typeToNames.computeIfAbsent(varType, k -> new ArrayList<>()).add(varName);
