@@ -6,17 +6,17 @@ import javax.swing.*;
 
 public class KotlinVariableAnalyzer {
     private static final String VAR_PATTERN = """
-        (?<const>val|var)\\s+  # Tipo de declaración (val o var)
-        (?<name>\\w+)\\s*       # Nombre de la variable
-        (?::\\s*(?<type>[\\w<>]+))?  # Tipo opcional (ej. Int, Float, String, etc.)
-        \\s*(?:=\\s*(?<value>.*))?  # Valor opcional después del =
+        (?<const>val|var)\\s+              # Tipo de declaración (val o var)
+        (?<name>[a-zA-Z_]\\w*)\\s*         # Nombre de la variable
+        (?::\\s*(?<type>[\\w<>?, \\[\\]]+))?  # Tipo opcional (ej. Int, Float, String, etc.)
+        \\s*(?:=\\s*(?<value>[^;]+))?      # Valor opcional después del =
     """.stripIndent();
 
     private static final Pattern pattern = Pattern.compile(VAR_PATTERN, Pattern.COMMENTS);
 
     public static void main(String[] args) throws IOException {
         String filePath = args.length > 0 ? args[0] : openFileDialog();
-        if (filePath == null){
+        if (filePath == null) {
             System.out.println("No se ha encontrado el archivo");
             return;
         }
@@ -42,8 +42,9 @@ public class KotlinVariableAnalyzer {
         int totalVars = 0, initializedVars = 0, arrayVars = 0, constantVars = 0;
 
         for (String line : lines) {
+            line = line.replaceAll("//.*", ""); // Eliminar comentarios de una línea
             Matcher matcher = pattern.matcher(line);
-            if (matcher.find()) {
+            while (matcher.find()) {
                 totalVars++;
 
                 String varType = Optional.ofNullable(matcher.group("type")).orElse("Unknown");
@@ -51,14 +52,23 @@ public class KotlinVariableAnalyzer {
                 boolean isConst = matcher.group("const").equals("val");
                 boolean isInitialized = matcher.group("value") != null;
 
-                if (varType.equals("Unknown") && matcher.group("value") != null){
-                    Matcher arrayMatcher = Pattern.compile("arrayOf<([^>]+)>").matcher(matcher.group("value"));
-                    if(arrayMatcher.find()){
-                        varType = "Arreglo " + arrayMatcher.group(1);
+                // Detectar tipos de arreglos
+                if (varType.equals("Unknown") && matcher.group("value") != null) {
+                    Matcher arrayMatcher = Pattern.compile("(\\w+Array)|arrayOf<([^>]+)>").matcher(matcher.group("value"));
+                    if (arrayMatcher.find()) {
+                        varType = arrayMatcher.group(1) != null ? arrayMatcher.group(1) : "Array<" + arrayMatcher.group(2) + ">";
                     }
                 }
-                boolean isArray = varType.contains("Array") || varType.startsWith("Arreglo ");
 
+                // Normalizar tipos genéricos
+                if (varType.matches("\\w+<[^>]+>")) {
+                    varType = varType.replaceAll("<[^>]+>", "<T>");
+                }
+
+                // Detectar si es un arreglo
+                boolean isArray = varType.contains("Array") || varType.startsWith("Array<");
+
+                // Contar tipos y nombres
                 typeCount.put(varType, typeCount.getOrDefault(varType, 0) + 1);
                 typeToNames.computeIfAbsent(varType, k -> new ArrayList<>()).add(varName);
 
