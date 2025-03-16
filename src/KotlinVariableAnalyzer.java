@@ -1,3 +1,11 @@
+/**
+ * KotlinVariableAnalyzer es una utilidad para analizar archivos con código fuente de Kotlin.
+ * El programa reconoce y clasifica las declaraciones de variables utilizando expresiones regulares.
+ * Proporciona estadísticas detalladas sobre las variables encontradas en el archivo analizado.
+ *
+ * @author
+ * @version 1.0
+ */
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
@@ -5,7 +13,12 @@ import java.util.regex.*;
 import javax.swing.*;
 
 public class KotlinVariableAnalyzer {
-    // Se usa un patrón modificado para capturar el tipo completo:
+
+    /**
+     * Expresión regular para reconocer declaraciones de variables Kotlin.
+     * Captura información sobre si es constante (val) o variable mutable (var),
+     * el nombre de la variable, su tipo (opcional) y el valor asignado (opcional).
+     */
     private static final String VAR_PATTERN = """
         (?<const>val|var)\\s+                       # val o var
         (?<name>[a-zA-Z_]\\w*)\\s*                  # nombre variable
@@ -15,6 +28,13 @@ public class KotlinVariableAnalyzer {
 
     private static final Pattern pattern = Pattern.compile(VAR_PATTERN, Pattern.COMMENTS);
 
+    /**
+     * Método principal que inicia la ejecución del programa.
+     * Recibe opcionalmente la ruta al archivo Kotlin desde línea de comandos.
+     *
+     * @param args Argumentos de línea de comandos (ruta opcional al archivo)
+     * @throws IOException Si ocurre un error al leer el archivo
+     */
     public static void main(String[] args) throws IOException {
         String filePath = args.length > 0 ? args[0] : openFileDialog();
         if (filePath == null) {
@@ -25,6 +45,11 @@ public class KotlinVariableAnalyzer {
         analyzeVariables(lines);
     }
 
+    /**
+     * Abre un diálogo gráfico para seleccionar un archivo Kotlin.
+     *
+     * @return Ruta absoluta al archivo seleccionado o null si no se selecciona ninguno
+     */
     private static String openFileDialog() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Selecciona un archivo de código Kotlin");
@@ -35,13 +60,19 @@ public class KotlinVariableAnalyzer {
         return null;
     }
 
+    /**
+     * Analiza las líneas del archivo Kotlin para identificar y clasificar variables.
+     * Imprime en pantalla estadísticas detalladas de las variables.
+     *
+     * @param lines Líneas del archivo Kotlin a analizar
+     */
     private static void analyzeVariables(List<String> lines) {
         Map<String, Integer> typeCount = new HashMap<>();
         Map<String, List<String>> typeToNames = new HashMap<>();
         int totalVars = 0, initializedVars = 0, arrayVars = 0, constantVars = 0;
 
         for (String line : lines) {
-            // Eliminamos comentarios de línea:
+            // Se eliminan comentarios para evitar falsos positivos:
             line = line.replaceAll("//.*", "");
             Matcher matcher = pattern.matcher(line);
             while (matcher.find()) {
@@ -49,7 +80,8 @@ public class KotlinVariableAnalyzer {
 
                 String varName = matcher.group("name");
                 String originalType = matcher.group("type");
-                // Se usa el tipo declarado o, si no lo hay, se infiere según el valor:
+
+                // Determina el tipo declarado o intenta inferirlo según el valor:
                 String varType = (originalType != null)
                         ? originalType.trim()
                         : inferType(matcher.group("value"));
@@ -57,7 +89,7 @@ public class KotlinVariableAnalyzer {
                 boolean isConst = matcher.group("const").equals("val");
                 boolean isInitialized = matcher.group("value") != null;
 
-                // Primero, si el tipo empieza por "Map<", procesarlo de forma especial:
+                // Tratamiento especial para variables tipo Map:
                 if (varType.startsWith("Map<")) {
                     Matcher mapMatcher = Pattern.compile("Map\\s*<\\s*([^,]+)\\s*,\\s*([^>]+)\\s*>").matcher(varType);
                     if (mapMatcher.find()) {
@@ -66,7 +98,7 @@ public class KotlinVariableAnalyzer {
                         varType = "Map<" + keyType + ", " + valueType + ">";
                     }
                 } else if (varType.matches("\\w+<[^>]+>")) {
-                    // Normalizamos otros tipos genéricos a <T>
+                    // Normaliza tipos genéricos no mapas a <T>:
                     varType = varType.replaceAll("<[^>]+>", "<T>");
                 }
 
@@ -81,6 +113,7 @@ public class KotlinVariableAnalyzer {
             }
         }
 
+        // Imprime los resultados del análisis:
         System.out.println("Numero total de variables declaradas: " + totalVars);
         System.out.println("Numero total de tipos utilizados: " + typeCount.size());
         System.out.println("Numero total de variables declaradas por tipo:");
@@ -92,6 +125,12 @@ public class KotlinVariableAnalyzer {
         typeToNames.forEach((k, v) -> System.out.println("  - " + k + ": " + String.join(", ", v)));
     }
 
+    /**
+     * Infieren el tipo de una variable según su valor asignado, usando patrones regex.
+     *
+     * @param value Valor asignado a la variable
+     * @return Tipo inferido como cadena, "Unknown" si no se reconoce
+     */
     private static String inferType(String value) {
         if (value == null) return "Unknown";
         if (value.matches("\".*\"")) return "String";
