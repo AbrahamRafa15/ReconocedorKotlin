@@ -26,11 +26,13 @@ public class KotlinVariableAnalyzer {
         \\s*(?:=\\s*(?<value>[^;]+))?               # valor opcional
     """.stripIndent();
 
+    // Objeto Pattern compilado para mejorar rendimiento en la ejecución
     private static final Pattern pattern = Pattern.compile(VAR_PATTERN, Pattern.COMMENTS);
 
     /**
      * Método principal que inicia la ejecución del programa.
      * Recibe opcionalmente la ruta al archivo Kotlin desde línea de comandos.
+     * Si no se recibe ninguna ruta, se abre un diálogo gráfico.
      *
      * @param args Argumentos de línea de comandos (ruta opcional al archivo)
      * @throws IOException Si ocurre un error al leer el archivo
@@ -41,12 +43,15 @@ public class KotlinVariableAnalyzer {
             System.out.println("No se ha encontrado el archivo");
             return;
         }
+
+        // Lectura de todas las líneas del archivo seleccionado
         List<String> lines = Files.readAllLines(Paths.get(filePath));
         analyzeVariables(lines);
     }
 
     /**
      * Abre un diálogo gráfico para seleccionar un archivo Kotlin.
+     * Se usa JFileChooser para una selección amigable del archivo.
      *
      * @return Ruta absoluta al archivo seleccionado o null si no se selecciona ninguno
      */
@@ -62,34 +67,45 @@ public class KotlinVariableAnalyzer {
 
     /**
      * Analiza las líneas del archivo Kotlin para identificar y clasificar variables.
+     * Utiliza varias estructuras Map para llevar un conteo claro y ordenado.
      * Imprime en pantalla estadísticas detalladas de las variables.
      *
      * @param lines Líneas del archivo Kotlin a analizar
      */
     private static void analyzeVariables(List<String> lines) {
+        // Almacena la cantidad de variables por tipo encontrado
         Map<String, Integer> typeCount = new HashMap<>();
+        // Clasifica los nombres de variables según su tipo
         Map<String, List<String>> typeToNames = new HashMap<>();
-        int totalVars = 0, initializedVars = 0, arrayVars = 0, constantVars = 0;
+
+        // Variables para estadísticas generales
+        int totalVars = 0;
+        int initializedVars = 0;
+        int arrayVars = 0;
+        int constantVars = 0;
 
         for (String line : lines) {
-            // Se eliminan comentarios para evitar falsos positivos:
+            // Se eliminan comentarios de línea para evitar falsos positivos en el análisis
             line = line.replaceAll("//.*", "");
             Matcher matcher = pattern.matcher(line);
+
+            // Iterar sobre todas las coincidencias encontradas por línea
             while (matcher.find()) {
                 totalVars++;
 
                 String varName = matcher.group("name");
                 String originalType = matcher.group("type");
 
-                // Determina el tipo declarado o intenta inferirlo según el valor:
+                // Determina el tipo declarado explícitamente o intenta inferirlo según el valor:
                 String varType = (originalType != null)
                         ? originalType.trim()
                         : inferType(matcher.group("value"));
 
+                // Detecta si la variable es constante ("val") o mutable ("var")
                 boolean isConst = matcher.group("const").equals("val");
                 boolean isInitialized = matcher.group("value") != null;
 
-                // Tratamiento especial para variables tipo Map:
+                // Tratamiento especial para variables tipo Map con clave y valor específico:
                 if (varType.startsWith("Map<")) {
                     Matcher mapMatcher = Pattern.compile("Map\\s*<\\s*([^,]+)\\s*,\\s*([^>]+)\\s*>").matcher(varType);
                     if (mapMatcher.find()) {
@@ -98,12 +114,14 @@ public class KotlinVariableAnalyzer {
                         varType = "Map<" + keyType + ", " + valueType + ">";
                     }
                 } else if (varType.matches("\\w+<[^>]+>")) {
-                    // Normaliza tipos genéricos no mapas a <T>:
+                    // Normaliza tipos genéricos distintos de Map para simplificar el conteo:
                     varType = varType.replaceAll("<[^>]+>", "<T>");
                 }
 
+                // Detecta si la variable es de tipo arreglo
                 boolean isArray = varType.contains("Array") || varType.startsWith("Array<");
 
+                // Actualiza mapas de conteo y clasificación
                 typeCount.put(varType, typeCount.getOrDefault(varType, 0) + 1);
                 typeToNames.computeIfAbsent(varType, k -> new ArrayList<>()).add(varName);
 
@@ -113,7 +131,7 @@ public class KotlinVariableAnalyzer {
             }
         }
 
-        // Imprime los resultados del análisis:
+        // Imprime resultados claros y ordenados del análisis:
         System.out.println("Numero total de variables declaradas: " + totalVars);
         System.out.println("Numero total de tipos utilizados: " + typeCount.size());
         System.out.println("Numero total de variables declaradas por tipo:");
@@ -152,3 +170,4 @@ public class KotlinVariableAnalyzer {
         return "Unknown";
     }
 }
+
